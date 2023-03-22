@@ -113,7 +113,7 @@
   <!-- build event -->
   <Target Name="CopyLibrariesBuild" DependsOnTargets="BuildNativeAndSetConfig" AfterTargets="AfterBuild" Condition="'$(SolutionDir)' != '*Undefined*'">
     <PropertyGroup>
-      <UABEABinDir>$(SolutionDir)UABEAvalonia\$(OutputPath)</UABEABinDir>
+      <UABEABinDir>$(SolutionDir)TextureReplacerCLI\$(OutputPath)</UABEABinDir>
     </PropertyGroup>
     
     <!-- copy textoolwrap and deps -->

@@ -30,7 +30,7 @@
   <!-- build event -->
   <Target Name="CopyLibrariesBuild" AfterTargets="AfterBuild" Condition="'$(SolutionDir)' != '*Undefined*'">
     <PropertyGroup>
-      <UABEABinDir>$(SolutionDir)UABEAvalonia\$(OutputPath)</UABEABinDir>
+      <UABEABinDir>$(SolutionDir)TextureReplacerCLI\$(OutputPath)</UABEABinDir>
     </PropertyGroup>
     
     <!-- copy fontplugin -->

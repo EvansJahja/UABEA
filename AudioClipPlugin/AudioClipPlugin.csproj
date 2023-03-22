@@ -11,7 +11,7 @@
     <!-- build event -->
     <Target Name="CopyLibrariesBuild" AfterTargets="AfterBuild" Condition="'$(SolutionDir)' != '*Undefined*'">
         <PropertyGroup>
-            <UABEABinDir>$(SolutionDir)UABEAvalonia\$(OutputPath)</UABEABinDir>
+            <UABEABinDir>$(SolutionDir)TextureReplacerCLI\$(OutputPath)</UABEABinDir>
         </PropertyGroup>
 
         <Copy SourceFiles="$(OutputPath)AudioClipPlugin.dll;$(OutputPath)Fmod5Sharp.dll;$(OutputPath)NAudio.Core.dll;$(OutputPath)OggVorbisEncoder.dll;$(OutputPath)System.Text.Json.dll" DestinationFolder="$(UABEABinDir)plugins" ContinueOnError="true" />
