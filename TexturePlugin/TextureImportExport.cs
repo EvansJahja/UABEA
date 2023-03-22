@@ -71,6 +71,11 @@ namespace TexturePlugin
             return encData;
         }
 
+        public static bool Export(byte[] encData, string file, int width, int height, int format, uint platform = 0, byte[] platformBlob = null)
+        {
+            return Export(encData, file, width, height, (TextureFormat)format, platform, platformBlob);
+        }
+
         public static bool Export(byte[] encData, string file, int width, int height, TextureFormat format, uint platform = 0, byte[] platformBlob = null)
         {
             if (platform == 38 && platformBlob != null && platformBlob.Length != 0)

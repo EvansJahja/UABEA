@@ -364,8 +364,8 @@ namespace UABEAvalonia
 
             Stream assetStream = item.Stream;
 
-            DetectedFileType fileType = AssetBundleDetector.DetectFileType(new AssetsFileReader(assetStream), 0);
-            assetStream.Position = 0;
+        DetectedFileType fileType = AssetBundleDetector.DetectFileType(new AssetsFileReader(assetStream), 0);
+        assetStream.Position = 0;
 
             if (fileType == DetectedFileType.AssetsFile)
             {

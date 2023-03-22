@@ -17,6 +17,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AudioClipPlugin", "AudioCli
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FontPlugin", "FontPlugin\FontPlugin.csproj", "{9C582792-C3AA-4854-9DB5-26AF330ACDDB}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TextureReplacerCLI", "TextureReplacerCLI\TextureReplacerCLI.csproj", "{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -89,8 +91,8 @@ Global
 		{B334A509-14E0-4413-83C7-BA2439A40394}.Release|x86.Build.0 = Release|x86
 		{57B84056-BCA6-4D18-BBE1-59305F7ED5B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{57B84056-BCA6-4D18-BBE1-59305F7ED5B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{57B84056-BCA6-4D18-BBE1-59305F7ED5B3}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{57B84056-BCA6-4D18-BBE1-59305F7ED5B3}.Debug|x64.Build.0 = Debug|Any CPU
+		{57B84056-BCA6-4D18-BBE1-59305F7ED5B3}.Debug|x64.ActiveCfg = Debug|x64
+		{57B84056-BCA6-4D18-BBE1-59305F7ED5B3}.Debug|x64.Build.0 = Debug|x64
 		{57B84056-BCA6-4D18-BBE1-59305F7ED5B3}.Debug|x86.ActiveCfg = Debug|Any CPU
 		{57B84056-BCA6-4D18-BBE1-59305F7ED5B3}.Debug|x86.Build.0 = Debug|Any CPU
 		{57B84056-BCA6-4D18-BBE1-59305F7ED5B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -111,6 +113,18 @@ Global
 		{9C582792-C3AA-4854-9DB5-26AF330ACDDB}.Release|x64.Build.0 = Release|x64
 		{9C582792-C3AA-4854-9DB5-26AF330ACDDB}.Release|x86.ActiveCfg = Release|x86
 		{9C582792-C3AA-4854-9DB5-26AF330ACDDB}.Release|x86.Build.0 = Release|x86
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Debug|x64.ActiveCfg = Debug|x64
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Debug|x64.Build.0 = Debug|x64
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Debug|x86.Build.0 = Debug|Any CPU
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Release|x64.ActiveCfg = Release|Any CPU
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Release|x64.Build.0 = Release|Any CPU
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Release|x86.ActiveCfg = Release|Any CPU
+		{5DDCFA86-4144-40A4-80BE-C76DBFFA2815}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
