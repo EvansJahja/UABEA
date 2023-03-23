@@ -14,7 +14,7 @@ namespace TextureReplacerCLI
         private bool disposedValue;
         public AssetsManager assetsManager { get; private set; }
         String bundleFile;
-        BundleWorkspace bundleWorkspace = new BundleWorkspace();
+        public BundleWorkspace bundleWorkspace { get; private set; } = new BundleWorkspace();
 
         public List<Tuple<AssetsFileInstance, byte[]>> ChangedAssetsDatas = new List<Tuple<AssetsFileInstance, byte[]>>();
 
