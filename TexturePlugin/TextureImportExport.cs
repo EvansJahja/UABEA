@@ -57,7 +57,7 @@ namespace TexturePlugin
                 {
                     Mode = ResizeMode.BoxPad,
                     Position = AnchorPositionMode.BottomLeft,
-                    PadColor = Color.Fuchsia, // full alpha?
+                    PadColor = Color.Transparent, // full alpha?
                     Size = newSize
                 }).Flip(FlipMode.Vertical));
 
