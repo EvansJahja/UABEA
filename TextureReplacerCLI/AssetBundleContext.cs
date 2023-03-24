@@ -18,9 +18,11 @@ namespace TextureReplacerCLI
 
         public List<Tuple<AssetsFileInstance, byte[]>> ChangedAssetsDatas = new List<Tuple<AssetsFileInstance, byte[]>>();
 
+        String? saveAs;
 
-        public AssetBundleContext(String bundleFile)
+        public AssetBundleContext(String bundleFile, String? saveAs = null)
         {
+            this.saveAs = saveAs;
             this.assetsManager = bundleWorkspace.am;
             string classDataPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "classdata.tpk");
             if (File.Exists(classDataPath))
@@ -223,7 +225,11 @@ namespace TextureReplacerCLI
                 if (disposing)
                 {
                     // TODO: dispose managed state (managed objects)
-                    SaveBundle("C:\\Users\\EvansGrace02\\Desktop\\modded\\out.assetbundle");
+                    if (this.saveAs != null)
+                    {
+                        SaveBundle(this.saveAs);
+                    }
+                    
                     this.assetsManager.UnloadBundleFile(this.bundleFile);
                 }
 
