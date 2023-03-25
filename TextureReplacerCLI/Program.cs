@@ -259,19 +259,7 @@ class App: IDisposable
 
                             image.Save(textureFileName);
 
-                            int width, height;
-                            var b = TextureImportExport.Import(textureFileName, (TextureFormat)texFile.m_TextureFormat, out width, out height, platform, platformBlob);
-
-                            AssetTypeValueField image_data = baseField["image data"];
-                            image_data.AsByteArray = b;
-
-
-                            byte[] savedAsset = baseField.WriteToByteArray();
-
-                            var replacer = new AssetsReplacerFromMemory(
-                                tex2DCont.PathId, tex2DCont.ClassId, tex2DCont.MonoId, savedAsset);
-
-                            assetWorkspace.AddReplacer(tex2DCont.FileInstance, replacer, new MemoryStream(savedAsset));
+                            SaveTexture(assetWorkspace, tex2DCont , textureFileName, texFile, platformBlob, platform);
 
                         }
                     } 
@@ -291,33 +279,57 @@ class App: IDisposable
                     byte[] platformBlob;
                     uint platform;
                     ExportTexture(assetWorkspace, cont, true, out baseField, out texFile, textureFileName, out platformBlob, out platform);
-                    
+
 
                     // TODO match resolution
 
                     File.Copy(replacementFile, textureFileName);
 
+                    if (File.Exists(textureFileName))
+                    {
+                        File.Delete(textureFileName);
+                    }
+                    using (Image replacementImg = Image<Rgba32>.Load(replacementFile))
+                    {
+                        if (texFile.m_Width != replacementImg.Width || texFile.m_Height != replacementImg.Height)
+                        {
+                            replacementImg.Mutate(i => i.Resize(texFile.m_Width, texFile.m_Height));
+                            replacementImg.Save(textureFileName);
+                        }
+                    }
 
-
-
-                    int width, height;
-                    var b = TextureImportExport.Import(textureFileName, (TextureFormat)texFile.m_TextureFormat, out width, out height, platform, platformBlob);
-
-                    AssetTypeValueField image_data = baseField["image data"];
-                    image_data.AsByteArray = b;
-
-                    byte[] savedAsset = baseField.WriteToByteArray();
-
-                    var replacer = new AssetsReplacerFromMemory(
-                        cont.PathId, cont.ClassId, cont.MonoId, savedAsset);
-
-                    assetWorkspace.AddReplacer(cont.FileInstance, replacer, new MemoryStream(savedAsset));
+                    SaveTexture(assetWorkspace, cont, textureFileName, texFile, platformBlob, platform);
                 }
             }
 
         }
 
         Console.WriteLine("Saved to {0}", saveAs);
+    }
+
+    private static void SaveTexture(AssetWorkspace assetWorkspace, AssetContainer cont, string textureFileName, TextureFile texFile, byte[] platformBlob, uint platform)
+    {
+        AssetTypeValueField texBaseField = TextureHelper.GetByteArrayTexture(assetWorkspace, cont);
+
+        int width, height;
+        byte[] encImageBytes = TextureImportExport.Import(textureFileName, (TextureFormat)texFile.m_TextureFormat, out width, out height, platform, platformBlob);
+
+        AssetTypeValueField m_StreamData = texBaseField["m_StreamData"];
+        m_StreamData["offset"].AsInt = 0;
+        m_StreamData["size"].AsInt = 0;
+        m_StreamData["path"].AsString = "";
+
+        AssetTypeValueField image_data = texBaseField["image data"];
+        image_data.Value.ValueType = AssetValueType.ByteArray;
+        image_data.TemplateField.ValueType = AssetValueType.ByteArray;
+        image_data.AsByteArray = encImageBytes;
+
+        byte[] savedAsset = texBaseField.WriteToByteArray();
+
+        var replacer = new AssetsReplacerFromMemory(
+            cont.PathId, cont.ClassId, cont.MonoId, savedAsset);
+
+        assetWorkspace.AddReplacer(cont.FileInstance, replacer, new MemoryStream(savedAsset));
     }
 
     private void ExportTexture(AssetWorkspace assetWorkspace, AssetContainer cont, bool infoOnly, out AssetTypeValueField baseField, out TextureFile texFile, string file, out byte[] platformBlob, out uint platform)
