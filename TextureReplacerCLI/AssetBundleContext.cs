@@ -181,14 +181,14 @@ namespace TextureReplacerCLI
                 throw new Exception("This doesn't seem to be an assets file or bundle.");
             }
         }
-        private void SaveBundle(string path)
+        private bool SaveBundle(string path)
         {
             if (bundleWorkspace.BundleInst is null)
             {
                 throw new Exception("BundleInst is null");
             }
 
-            if (ChangedAssetsDatas != null)
+            if (ChangedAssetsDatas.Count != 0)
             {
                 List<Tuple<AssetsFileInstance, byte[]>> assetDatas = ChangedAssetsDatas;
 
@@ -214,8 +214,24 @@ namespace TextureReplacerCLI
                     {
                         this.bundleWorkspace.BundleInst.file.Write(w, replacers.ToList());
                     }
+                    return true;
                 }
             }
+            return false;
+        }
+
+        private void Compress(string decompressedFilename, string compressedFilename)
+        {
+            var am = this.bundleWorkspace.am;
+            var bun = am.LoadBundleFile(decompressedFilename);
+            using (var stream = File.OpenWrite(compressedFilename))
+            {
+                using (var writer = new AssetsFileWriter(stream))
+                {
+                    bun.file.Pack(bun.file.Reader, writer, AssetBundleCompressionType.LZMA);
+                }
+            }
+            am.UnloadBundleFile(decompressedFilename);
         }
 
         protected virtual void Dispose(bool disposing)
@@ -227,7 +243,13 @@ namespace TextureReplacerCLI
                     // TODO: dispose managed state (managed objects)
                     if (this.saveAs != null)
                     {
-                        SaveBundle(this.saveAs);
+                        string decompressedSaveAs = this.saveAs + "_decompressed";
+                        bool hasChanges = SaveBundle(decompressedSaveAs);
+                        if (hasChanges)
+                        {
+                            Compress(decompressedSaveAs, this.saveAs);
+                            File.Delete(decompressedSaveAs);
+                        }
                     }
                     
                     this.assetsManager.UnloadBundleFile(this.bundleFile);

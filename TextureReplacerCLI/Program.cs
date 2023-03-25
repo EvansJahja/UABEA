@@ -93,7 +93,7 @@ class App: IDisposable
         }
     }
     
-    record FileSet(string replacementFile, string container, string name, long pathId,AssetContainer cont, Rectangle? spriteRect, AssetContainer? tex2DContainer);
+    record FileSet(string replacementFile, string container, string name, long pathId, long classId, Rectangle? spriteRect, long? tex2DPathId);
     record BundleReplacementRequest(string assetBundlePath, FileSet[] replacements);
 
     IEnumerable<BundleReplacementRequest> assetBundlesNeedModification()
@@ -174,16 +174,16 @@ class App: IDisposable
 
                             }
 
-                            fileSets.Add(new FileSet(f, container, name, kvp.Key.asset.PathId, cont, rectangle, tex2DContainer));
+                            fileSets.Add(new FileSet(f, container, name, kvp.Key.asset.PathId, cont.ClassId, rectangle, tex2DContainer?.PathId));
                         }
                     }
                     if (fileSets.Count > 0)
                     {
 
-                        var texture2dFileSetContainers = (from x in fileSets where x.cont.ClassId == texture2dClassId select x.container).ToImmutableHashSet();
+                        var texture2dFileSetContainers = (from x in fileSets where x.classId == texture2dClassId select x.container).ToImmutableHashSet();
                         var combinedFileSets = from x in fileSets where
-                          (x.cont.ClassId != texture2dClassId && !texture2dFileSetContainers.Contains(x.container)) ||
-                          x.cont.ClassId == texture2dClassId select x;
+                          (x.classId != texture2dClassId && !texture2dFileSetContainers.Contains(x.container)) ||
+                          x.classId == texture2dClassId select x;
                           
 
                         yield return new BundleReplacementRequest(assetBundlefIle, combinedFileSets.ToArray());
@@ -199,9 +199,12 @@ class App: IDisposable
     public void Start()
     {
         Directory.CreateDirectory(scratchDir);
-        foreach (BundleReplacementRequest replacementRequest in assetBundlesNeedModification()) { 
-            replaceAssetBundle(replacementRequest.assetBundlePath, replacementRequest.replacements);
+
+        List<Task> tasks = new List<Task>();
+        foreach (BundleReplacementRequest replacementRequest in assetBundlesNeedModification()) {
+            tasks.Add(Task.Run(() => replaceAssetBundle(replacementRequest.assetBundlePath, replacementRequest.replacements)));
         }
+        Task.WaitAll(tasks.ToArray());
     }
 
     void replaceAssetBundle(string originalAssetBundle, FileSet[] replacementFileInfos)
@@ -216,17 +219,19 @@ class App: IDisposable
             AssetWorkspace assetWorkspace = assetsContext.assetWorkspace;
             int spriteClassId = bundleContext.assetsManager.ClassDatabase.FindAssetClassByName("Sprite").ClassId;
             int texture2dClassId = bundleContext.assetsManager.ClassDatabase.FindAssetClassByName("Texture2D").ClassId;
+            AssetsFileInstance fileInstance = assetsContext.assetWorkspace.LoadedFiles[0];
 
-
-            foreach(FileSet fileSet in replacementFileInfos)
+            foreach (FileSet fileSet in replacementFileInfos)
             {
-                AssetContainer cont = fileSet.cont;
+
+
+                AssetContainer cont = assetsContext.assetWorkspace.GetAssetContainer(fileInstance, 0, fileSet.pathId);
 
                 if (cont.ClassId == spriteClassId) {
                     string file = Path.GetFileNameWithoutExtension(fileSet.container);
                     string textureFileName = Path.Join(scratchDir, file + ".png");
 
-                    AssetContainer tex2DCont = fileSet.tex2DContainer;
+                    AssetContainer tex2DCont = assetsContext.assetWorkspace.GetAssetContainer(fileInstance, 0, fileSet.tex2DPathId.Value);
 
                     AssetTypeValueField baseField;
                     TextureFile texFile;
@@ -282,13 +287,13 @@ class App: IDisposable
 
 
                     // TODO match resolution
-
-                    File.Copy(replacementFile, textureFileName);
-
                     if (File.Exists(textureFileName))
                     {
                         File.Delete(textureFileName);
                     }
+                    File.Copy(replacementFile, textureFileName);
+
+                    
                     using (Image replacementImg = Image<Rgba32>.Load(replacementFile))
                     {
                         if (texFile.m_Width != replacementImg.Width || texFile.m_Height != replacementImg.Height)
