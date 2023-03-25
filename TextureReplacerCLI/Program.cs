@@ -60,9 +60,6 @@ class App: IDisposable
     private string _dataFolder;
     string streamingAssets;
 
-    private Dictionary<string, Mutex> mutexes = new Dictionary<string, Mutex>();
-
-
 
     private string _scratchDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
     string scratchDir
@@ -96,9 +93,11 @@ class App: IDisposable
         }
     }
     
-    record FileSet(string replacementFile, string container, string name, long pathId, long classID, Rectangle? spriteRect, long? tex2DPathID);
+    record FileSet(string replacementFile, string container, string name, long pathId,AssetContainer cont, Rectangle? spriteRect, AssetContainer? tex2DContainer);
     record BundleReplacementRequest(string assetBundlePath, FileSet[] replacements);
-    IEnumerable<BundleReplacementRequest> assetBundlesNeedModification() {
+
+    IEnumerable<BundleReplacementRequest> assetBundlesNeedModification()
+    {
         Dictionary<string, string> filesForModifications = new Dictionary<string, string>();
         {
             Matcher matcher = new();
@@ -122,132 +121,89 @@ class App: IDisposable
             matcher.AddIncludePatterns(new[] { "**/*.assetbundle" });
             matcher.AddExcludePatterns(new[] { "bg/", "character/", "effects/" , "fashion/", "scenario/", "sd/", "still/"});
             IEnumerable<string> matchingFiles = matcher.GetResultsInFullPath(streamingAssets);
-
-
-            Queue<BundleReplacementRequest> qu = new Queue<BundleReplacementRequest>();
-            bool finished = false;
-
-            Task.Run(()=> {
-                Parallel.ForEach<string>(matchingFiles, (assetBundlefile, ct) =>
+            
+            foreach (string assetBundlefIle in matchingFiles)
+            {
+                UnityContainer ucont = new UnityContainer();
+                using (AssetBundleContext bundleContext = new AssetBundleContext(assetBundlefIle))
+                using (AssetsContext assetsContext = bundleContext.AssetsContext())
                 {
-                    UnityContainer ucont = new UnityContainer();
-                    using (AssetBundleContext bundleContext = new AssetBundleContext(assetBundlefile))
-                    using (AssetsContext assetsContext = bundleContext.AssetsContext())
+                    int spriteClassId = bundleContext.assetsManager.ClassDatabase.FindAssetClassByName("Sprite").ClassId;
+                    int texture2dClassId = bundleContext.assetsManager.ClassDatabase.FindAssetClassByName("Texture2D").ClassId;
+
+                    AssetsManager am = bundleContext.assetsManager;
+                    
+                    foreach (AssetsFileInstance file in assetsContext.assetWorkspace.LoadedFiles)
                     {
-                        int spriteClassId = bundleContext.assetsManager.ClassDatabase.FindAssetClassByName("Sprite").ClassId;
-                        int texture2dClassId = bundleContext.assetsManager.ClassDatabase.FindAssetClassByName("Texture2D").ClassId;
-
-                        AssetsManager am = bundleContext.assetsManager;
-
-                        foreach (AssetsFileInstance file in assetsContext.assetWorkspace.LoadedFiles)
+                        AssetsFileInstance? actualFile;
+                        AssetTypeValueField? ucontBaseField;
+                        if (UnityContainer.TryGetBundleContainerBaseField(assetsContext.assetWorkspace, file, out actualFile, out ucontBaseField))
                         {
-                            AssetsFileInstance? actualFile;
-                            AssetTypeValueField? ucontBaseField;
-                            if (UnityContainer.TryGetBundleContainerBaseField(assetsContext.assetWorkspace, file, out actualFile, out ucontBaseField))
-                            {
-                                ucont.FromAssetBundle(am, actualFile, ucontBaseField);
-                            }
-                            else if (UnityContainer.TryGetRsrcManContainerBaseField(assetsContext.assetWorkspace, file, out actualFile, out ucontBaseField))
-                            {
-                                ucont.FromResourceManager(am, actualFile, ucontBaseField);
-                            }
+                            ucont.FromAssetBundle(am, actualFile, ucontBaseField);
                         }
-
-                        List<FileSet> fileSets = new List<FileSet>();
-                        AssetsFileInstance fileInstance = assetsContext.assetWorkspace.LoadedFiles[0];
-                        foreach (KeyValuePair<UnityContainerAssetInfo, string> kvp in ucont.AssetMap)
+                        else if (UnityContainer.TryGetRsrcManContainerBaseField(assetsContext.assetWorkspace, file, out actualFile, out ucontBaseField))
                         {
-                            AssetContainer cont = assetsContext.assetWorkspace.GetAssetContainer(fileInstance, 0, kvp.Key.asset.PathId);
-                            var bf = assetsContext.assetWorkspace.GetBaseField(cont);
-                            string name = bf["m_Name"].AsString;
-                            if (filesForModifications.ContainsKey(name))
-                            {
-                                string f = filesForModifications[name];
-                                string container = kvp.Value;
-                                Rectangle? rectangle = null;
-                                AssetContainer? tex2DContainer = null;
-                                if (cont.ClassId == spriteClassId)
-                                {
-                                    rectangle = new Rectangle(
-                                        bf["m_Rect"]["x"].AsInt,
-                                        bf["m_Rect"]["y"].AsInt,
-                                        bf["m_Rect"]["width"].AsInt,
-                                        bf["m_Rect"]["height"].AsInt
-                                        );
-                                    // find container for texture. Probably won't work if the dependency is external.
-                                    long texturePathID = bf["m_RD"]["texture"]["m_PathID"].AsLong;
-                                    tex2DContainer = assetsContext.assetWorkspace.GetAssetContainer(fileInstance, 0, texturePathID);
-
-
-                                }
-
-                                fileSets.Add(new FileSet(f, container, name, kvp.Key.asset.PathId, cont.PathId, rectangle, tex2DContainer?.PathId));
-
-                            }
-                        }
-                        if (fileSets.Count == 0)
-                        {
-                            return;
-                        }
-
-                        var texture2dFileSetContainers = (from x in fileSets where x.classID == texture2dClassId select x.container).ToImmutableHashSet();
-                        var combinedFileSets = from x in fileSets
-                                               where
-                           (x.classID != texture2dClassId && !texture2dFileSetContainers.Contains(x.container)) ||
-                           x.classID == texture2dClassId
-                                               select x;
-
-
-                        lock (qu)
-                        {
-                            qu.Enqueue(new BundleReplacementRequest(assetBundlefile, combinedFileSets.ToArray()));
+                            ucont.FromResourceManager(am, actualFile, ucontBaseField);
                         }
                     }
-                });
-                finished = true;
-            });
-            while (!finished)
-            {
-                while (qu.Count > 0)
-                {
-                    yield return qu.Dequeue();
+
+                    List<FileSet> fileSets = new List<FileSet>();
+                    AssetsFileInstance fileInstance = assetsContext.assetWorkspace.LoadedFiles[0];
+                    foreach (KeyValuePair<UnityContainerAssetInfo, string> kvp in ucont.AssetMap)
+                    {
+                        AssetContainer cont = assetsContext.assetWorkspace.GetAssetContainer(fileInstance, 0, kvp.Key.asset.PathId);
+                        var bf = assetsContext.assetWorkspace.GetBaseField(cont);
+                        string name = bf["m_Name"].AsString;
+                        if (filesForModifications.ContainsKey(name)) {
+                            string f = filesForModifications[name];
+                            string container = kvp.Value;
+                            Rectangle? rectangle = null;
+                            AssetContainer? tex2DContainer = null;
+                            if (cont.ClassId == spriteClassId)
+                            {
+                                rectangle = new Rectangle(
+                                    bf["m_Rect"]["x"].AsInt,
+                                    bf["m_Rect"]["y"].AsInt,
+                                    bf["m_Rect"]["width"].AsInt,
+                                    bf["m_Rect"]["height"].AsInt
+                                    );
+                                // find container for texture. Probably won't work if the dependency is external.
+                                long texturePathID = bf["m_RD"]["texture"]["m_PathID"].AsLong;
+                                tex2DContainer = assetsContext.assetWorkspace.GetAssetContainer(fileInstance, 0, texturePathID);
+
+
+                            }
+
+                            fileSets.Add(new FileSet(f, container, name, kvp.Key.asset.PathId, cont, rectangle, tex2DContainer));
+                        }
+                    }
+                    if (fileSets.Count > 0)
+                    {
+
+                        var texture2dFileSetContainers = (from x in fileSets where x.cont.ClassId == texture2dClassId select x.container).ToImmutableHashSet();
+                        var combinedFileSets = from x in fileSets where
+                          (x.cont.ClassId != texture2dClassId && !texture2dFileSetContainers.Contains(x.container)) ||
+                          x.cont.ClassId == texture2dClassId select x;
+                          
+
+                        yield return new BundleReplacementRequest(assetBundlefIle, combinedFileSets.ToArray());
+                    }
                 }
-            }
 
-            
+                
+            }
         }
     }
 
-    private Mutex getMutexForFile(string textureFileName)
-    {
-        Mutex m;
-        lock (mutexes)
-        {
-            if (mutexes.ContainsKey(textureFileName))
-            {
-                m = mutexes[textureFileName];
-            }
-            else
-            {
-                m = new Mutex();
-                mutexes.Add(textureFileName, m);
-            }
-        }
-        return m;
-    }
 
     public void Start()
     {
         Directory.CreateDirectory(scratchDir);
-        List<Task> tasks = new List<Task>();
-        foreach (BundleReplacementRequest replacementRequest in assetBundlesNeedModification())
-        {
-            tasks.Add(Task.Run(()=>replaceAssetBundle(replacementRequest.assetBundlePath, replacementRequest.replacements)));
+        foreach (BundleReplacementRequest replacementRequest in assetBundlesNeedModification()) { 
+            replaceAssetBundle(replacementRequest.assetBundlePath, replacementRequest.replacements);
         }
-        Task.WaitAll(tasks.ToArray());
-        
     }
-        
+
     void replaceAssetBundle(string originalAssetBundle, FileSet[] replacementFileInfos)
     {
         string saveAs = Path.Join(outputFolder, Path.GetRelativePath(this.streamingAssets, originalAssetBundle));
@@ -264,73 +220,61 @@ class App: IDisposable
 
             foreach(FileSet fileSet in replacementFileInfos)
             {
-                AssetsFileInstance fileInstance = assetsContext.assetWorkspace.LoadedFiles[0];
-                AssetContainer cont = assetsContext.assetWorkspace.GetAssetContainer(fileInstance, 0, fileSet.pathId); ;
+                AssetContainer cont = fileSet.cont;
 
                 if (cont.ClassId == spriteClassId) {
                     string file = Path.GetFileNameWithoutExtension(fileSet.container);
                     string textureFileName = Path.Join(scratchDir, file + ".png");
 
+                    AssetContainer tex2DCont = fileSet.tex2DContainer;
 
-                    Mutex m = getMutexForFile(textureFileName);
-                    try
+                    AssetTypeValueField baseField;
+                    TextureFile texFile;
+                    byte[] platformBlob;
+                    uint platform;
+
+                    bool infoOnly = File.Exists(textureFileName);
+                    
+                    ExportTexture(assetWorkspace, tex2DCont, infoOnly, out baseField, out texFile, textureFileName, out platformBlob, out platform);
+
+                    string replacementFile = fileSet.replacementFile;
+                    Rectangle rect = fileSet.spriteRect.Value;
+
+                    using (Image<Rgba32> image = Image.Load<Rgba32>(textureFileName))
                     {
-                        m.WaitOne();
-                        AssetContainer tex2DCont = assetsContext.assetWorkspace.GetAssetContainer(fileInstance, 0, fileSet.tex2DPathID.Value); ;
-
-                        AssetTypeValueField baseField;
-                        TextureFile texFile;
-                        byte[] platformBlob;
-                        uint platform;
-
-                        bool infoOnly = File.Exists(textureFileName);
-
-                        ExportTexture(assetWorkspace, tex2DCont, infoOnly, out baseField, out texFile, textureFileName, out platformBlob, out platform);
-
-                        string replacementFile = fileSet.replacementFile;
-                        Rectangle rect = fileSet.spriteRect.Value;
-                        Console.WriteLine("Opening {0} for {1}", textureFileName, originalAssetBundle);
-
-                        using (Image<Rgba32> image = Image.Load<Rgba32>(textureFileName))
+                        using (Image<Rgba32> replacementImage = Image.Load<Rgba32>(replacementFile))
                         {
-                            using (Image<Rgba32> replacementImage = Image.Load<Rgba32>(replacementFile))
-                            {
-                                replacementImage.Mutate(i => i
-                                .Resize(rect.Width, rect.Height)
-                                .Crop(rect.Width, rect.Height)
-                                );
+                            replacementImage.Mutate(i => i
+                            .Resize(rect.Width, rect.Height)
+                            .Crop(rect.Width, rect.Height)
+                            );
 
-                                Point point = new Point(rect.X, image.Height - rect.Y - replacementImage.Height);
+                            Point point = new Point(rect.X, image.Height - rect.Y - replacementImage.Height);
 
-                                // We don't want alpha blending, we want to replace it with src, otherwise the original and translated overlap.
-                                GraphicsOptions options = new GraphicsOptions();
-                                options.AlphaCompositionMode = PixelAlphaCompositionMode.Src;
+                            // We don't want alpha blending, we want to replace it with src, otherwise the original and translated overlap.
+                            GraphicsOptions options = new GraphicsOptions();
+                            options.AlphaCompositionMode = PixelAlphaCompositionMode.Src;
 
-                                image.Mutate(i => i.DrawImage(replacementImage, point, options));
-                                image.Save(textureFileName);
+                            image.Mutate(i => i.DrawImage(replacementImage, point, options));
 
-                                int width, height;
-                                var b = TextureImportExport.Import(textureFileName, (TextureFormat)texFile.m_TextureFormat, out width, out height, platform, platformBlob);
+                            image.Save(textureFileName);
 
-                                AssetTypeValueField image_data = baseField["image data"];
-                                image_data.AsByteArray = b;
+                            int width, height;
+                            var b = TextureImportExport.Import(textureFileName, (TextureFormat)texFile.m_TextureFormat, out width, out height, platform, platformBlob);
+
+                            AssetTypeValueField image_data = baseField["image data"];
+                            image_data.AsByteArray = b;
 
 
-                                byte[] savedAsset = baseField.WriteToByteArray();
+                            byte[] savedAsset = baseField.WriteToByteArray();
 
-                                var replacer = new AssetsReplacerFromMemory(
-                                    tex2DCont.PathId, tex2DCont.ClassId, tex2DCont.MonoId, savedAsset);
+                            var replacer = new AssetsReplacerFromMemory(
+                                tex2DCont.PathId, tex2DCont.ClassId, tex2DCont.MonoId, savedAsset);
 
-                                assetWorkspace.AddReplacer(tex2DCont.FileInstance, replacer, new MemoryStream(savedAsset));
+                            assetWorkspace.AddReplacer(tex2DCont.FileInstance, replacer, new MemoryStream(savedAsset));
 
-                            }
                         }
-                    } finally
-                    {
-                        m.ReleaseMutex();
-                    }
-                    
-                    
+                    } 
                 } else if (cont.ClassId == texture2dClassId)
                 {
                     string file = Path.GetFileNameWithoutExtension(fileSet.container);
@@ -346,23 +290,14 @@ class App: IDisposable
                     TextureFile texFile;
                     byte[] platformBlob;
                     uint platform;
-
-                    Mutex m = getMutexForFile(textureFileName);
-                    try
-                    {
-                        m.WaitOne();
-
-                        ExportTexture(assetWorkspace, cont, true, out baseField, out texFile, textureFileName, out platformBlob, out platform);
-
-
-                        // TODO match resolution
-
-                        File.Copy(replacementFile, textureFileName);
-                    } finally
-                    {
-                        m.ReleaseMutex();
-                    }
+                    ExportTexture(assetWorkspace, cont, true, out baseField, out texFile, textureFileName, out platformBlob, out platform);
                     
+
+                    // TODO match resolution
+
+                    File.Copy(replacementFile, textureFileName);
+
+
 
 
                     int width, height;

@@ -1,9 +1,7 @@
 ﻿using AssetsTools.NET;
 using AssetsTools.NET.Extra;
-using Avalonia.Win32.Interop.Automation;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -183,61 +181,41 @@ namespace TextureReplacerCLI
                 throw new Exception("This doesn't seem to be an assets file or bundle.");
             }
         }
-        private bool SaveBundle(string path)
+        private void SaveBundle(string path)
         {
             if (bundleWorkspace.BundleInst is null)
             {
                 throw new Exception("BundleInst is null");
             }
 
-            if (ChangedAssetsDatas.Count == 0)
+            if (ChangedAssetsDatas != null)
             {
-                return false;
-            }
+                List<Tuple<AssetsFileInstance, byte[]>> assetDatas = ChangedAssetsDatas;
 
-            List<Tuple<AssetsFileInstance, byte[]>> assetDatas = ChangedAssetsDatas;
-
-            foreach (var tup in assetDatas)
-            {
-                AssetsFileInstance fileInstance = tup.Item1;
-                byte[] assetData = tup.Item2;
-
-                // remember selected index, when we replace the file it unselects the combobox item
-
-                string assetName = Path.GetFileName(fileInstance.path);
-                this.bundleWorkspace.AddOrReplaceFile(new MemoryStream(assetData), assetName, true);
-                // unload it so the new version is reloaded when we reopen it
-                this.assetsManager.UnloadAssetsFile(fileInstance.path);
-
-            }
-
-            if (assetDatas.Count > 0)
-            {
-                List<BundleReplacer> replacers = this.bundleWorkspace.GetReplacers();
-                using (FileStream fs = File.OpenWrite(path))
+                foreach (var tup in assetDatas)
                 {
+                    AssetsFileInstance fileInstance = tup.Item1;
+                    byte[] assetData = tup.Item2;
+
+                    // remember selected index, when we replace the file it unselects the combobox item
+
+                    string assetName = Path.GetFileName(fileInstance.path);
+                    this.bundleWorkspace.AddOrReplaceFile(new MemoryStream(assetData), assetName, true);
+                    // unload it so the new version is reloaded when we reopen it
+                    this.assetsManager.UnloadAssetsFile(fileInstance.path);
+
+                }
+
+                if (assetDatas.Count > 0)
+                {
+                    List<BundleReplacer> replacers = this.bundleWorkspace.GetReplacers();
+                    using (FileStream fs = File.OpenWrite(path))
                     using (AssetsFileWriter w = new AssetsFileWriter(fs))
                     {
-                        var bundleInst = this.bundleWorkspace.BundleInst;
                         this.bundleWorkspace.BundleInst.file.Write(w, replacers.ToList());
                     }
                 }
             }
-            return true;
-        }
-
-        private void Compress(string decompressedFilename, string compressedFilename)
-        {
-            var am = this.bundleWorkspace.am;
-            var bun = am.LoadBundleFile(decompressedFilename);
-            using (var stream = File.OpenWrite(compressedFilename))
-            {
-                using (var writer = new AssetsFileWriter(stream))
-                {
-                    bun.file.Pack(bun.file.Reader, writer, AssetBundleCompressionType.LZMA);
-                }
-            }
-            am.UnloadBundleFile(decompressedFilename);
         }
 
         protected virtual void Dispose(bool disposing)
@@ -249,13 +227,7 @@ namespace TextureReplacerCLI
                     // TODO: dispose managed state (managed objects)
                     if (this.saveAs != null)
                     {
-                        string decompressedSaveAs = this.saveAs + "_decompressed";
-                        bool hasChanges = SaveBundle(decompressedSaveAs);
-                        if (hasChanges)
-                        {
-                            Compress(decompressedSaveAs, this.saveAs);
-                            File.Delete(decompressedSaveAs);
-                        }
+                        SaveBundle(this.saveAs);
                     }
                     
                     this.assetsManager.UnloadBundleFile(this.bundleFile);
